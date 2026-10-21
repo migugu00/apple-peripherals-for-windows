@@ -7,6 +7,7 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
         return;
     }
 
+    PUCHAR modifiers = &Report[1];
     PUCHAR keySlots = &Report[2];
     PUCHAR specialKey = &Report[8];
     UCHAR mask = (UCHAR)AppleSpecialFnMask;
@@ -15,7 +16,24 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
         return;
     }
 
+    //
+    // The keyboard's 6KRO key array declares usages 0x00..0x65 only, so any
+    // injected F13..F24 keycode (0x68..0x73) is silently dropped by the HID
+    // parser. The modifier bitmap (E0..E7) IS declared, so while fn/globe is
+    // held we OR synthetic modifier bits into the modifier byte instead.
+    //
+    UCHAR modifierMask = (UCHAR)g_FnModifierMask;
+    if (modifierMask != 0)
+    {
+        *modifiers |= modifierMask;
+        DebugPrint("AKF: Fn key held -> modifier mask 0x%02x\n", modifierMask);
+    }
+
     UCHAR emitCode = (UCHAR)g_EmitHidCode;
+    if (emitCode == 0)
+    {
+        return;
+    }
 
     BOOLEAN alreadyPresent = FALSE;
     for (ULONG index = 0; index < 6; index++)
@@ -74,7 +92,12 @@ VOID TraceAppleTransportBuffer(_In_opt_ PUCHAR Buffer, _In_ ULONG Size, _In_ ULO
     if (Size >= PrefixBytes + 9)
     {
         PUCHAR report = Buffer + PrefixBytes;
-        DbgPrint(" special=0x%02x emit=0x%02x", report[8], (UCHAR)g_EmitHidCode);
+        DbgPrint(
+            " special=0x%02x mod=0x%02x mask=0x%02x emit=0x%02x",
+            report[8],
+            report[1],
+            (UCHAR)g_FnModifierMask,
+            (UCHAR)g_EmitHidCode);
     }
     else
     {
