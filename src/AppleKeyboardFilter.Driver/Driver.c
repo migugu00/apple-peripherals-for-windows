@@ -12,6 +12,7 @@ static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject);
 #endif
 
 ULONG g_EmitFnAsF23 = 1;
+ULONG g_EmitHidCode = 0x72;
 
 static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject)
 {
@@ -43,6 +44,8 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
     DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = DispatchInternalIoctl;
 
     ReadDriverDword(RegistryPath, L"EmitFnAsF23", &g_EmitFnAsF23);
+    ReadDriverDword(RegistryPath, L"EmitHidCode", &g_EmitHidCode);
+    DebugPrint("DriverEntry: EmitFnAsF23=%lu EmitHidCode=0x%02x\n", g_EmitFnAsF23, g_EmitHidCode);
     return STATUS_SUCCESS;
 }
 
@@ -248,6 +251,7 @@ NTSTATUS InternalIoctlComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Ir
             {
                 PUCHAR buffer = (PUCHAR)brb->BrbL2caAclTransfer.Buffer;
                 ULONG size = brb->BrbL2caAclTransfer.BufferSize;
+                TraceAppleTransportBuffer(buffer, size, 2);
                 TryProcessAppleKeyboardTransportBuffer(buffer, size, 2);
             }
         }
@@ -264,6 +268,7 @@ NTSTATUS InternalIoctlComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Ir
                         NormalPagePriority | MdlMappingNoExecute);
                 }
 
+                TraceAppleTransportBuffer(buffer, urb->UrbBulkOrInterruptTransfer.TransferBufferLength, 1);
                 TryProcessAppleKeyboardTransportBuffer(
                     buffer,
                     urb->UrbBulkOrInterruptTransfer.TransferBufferLength,
