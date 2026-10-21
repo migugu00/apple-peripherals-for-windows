@@ -21,13 +21,11 @@ extern "C" {
 
 #define DRIVERNAME "AppleKeyboardFilter"
 
-#if DBG
+// DIAGNOSTIC BUILD: trace output is always enabled so DbgView can capture it.
 #define DebugPrint(...) DbgPrint(DRIVERNAME ": " __VA_ARGS__)
-#else
-#define DebugPrint(...)
-#endif
 
 extern ULONG g_EmitFnAsF23;
+extern ULONG g_EmitHidCode;
 
 enum AppleKeyboardHidCodes
 {
@@ -63,6 +61,7 @@ NTSTATUS UsageNotificationComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIR
 NTSTATUS CompleteRequest(_Inout_ PIRP Irp, _In_ NTSTATUS Status, _In_ ULONG_PTR Information);
 ULONG GetLowerDeviceType(_In_ PDEVICE_OBJECT Pdo);
 NTSTATUS ReadDriverDword(_In_ PUNICODE_STRING RegistryPath, _In_ PCWSTR ValueName, _Inout_ PULONG Value);
+VOID TraceAppleTransportBuffer(_In_opt_ PUCHAR Buffer, _In_ ULONG Size, _In_ ULONG PrefixBytes);
 VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ ULONG Size);
 BOOLEAN TryProcessAppleKeyboardTransportBuffer(_Inout_updates_bytes_(Size) PUCHAR Buffer, _In_ ULONG Size, _In_ ULONG PrefixBytes);
 
