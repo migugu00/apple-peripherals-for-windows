@@ -27,6 +27,7 @@ extern "C" {
 extern ULONG g_EmitFnAsF23;
 extern ULONG g_EmitHidCode;
 extern ULONG g_FnModifierMask;
+extern ULONG g_ForceModifierMask;
 
 enum AppleKeyboardHidCodes
 {
