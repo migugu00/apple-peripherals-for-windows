@@ -13,6 +13,7 @@ static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject);
 
 ULONG g_EmitFnAsF23 = 1;
 ULONG g_EmitHidCode = 0x72;
+ULONG g_FnModifierMask = 0;
 
 static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject)
 {
@@ -45,7 +46,12 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 
     ReadDriverDword(RegistryPath, L"EmitFnAsF23", &g_EmitFnAsF23);
     ReadDriverDword(RegistryPath, L"EmitHidCode", &g_EmitHidCode);
-    DebugPrint("DriverEntry: EmitFnAsF23=%lu EmitHidCode=0x%02x\n", g_EmitFnAsF23, g_EmitHidCode);
+    ReadDriverDword(RegistryPath, L"FnModifierMask", &g_FnModifierMask);
+    DebugPrint(
+        "DriverEntry: EmitFnAsF23=%lu FnModifierMask=0x%02x EmitHidCode=0x%02x\n",
+        g_EmitFnAsF23,
+        (UCHAR)g_FnModifierMask,
+        (UCHAR)g_EmitHidCode);
     return STATUS_SUCCESS;
 }
 
