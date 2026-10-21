@@ -11,10 +11,34 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
     PUCHAR keySlots = &Report[2];
     PUCHAR specialKey = &Report[8];
     UCHAR mask = (UCHAR)AppleSpecialFnMask;
+
+    UCHAR pre[9];
+    RtlCopyMemory(pre, Report, 9);
+
+    //
+    // Delivery probe: when ForceModifierMask is set, OR it into the modifier
+    // byte on EVERY keyboard report so a stuck-modifier symptom proves the
+    // patched buffer reaches the HID parser.
+    //
+    if (g_ForceModifierMask != 0)
+    {
+        *modifiers |= (UCHAR)g_ForceModifierMask;
+        DebugPrint(
+            "AKF: force pre=[%02x %02x %02x %02x %02x %02x %02x %02x %02x]\n",
+            pre[0], pre[1], pre[2], pre[3], pre[4], pre[5], pre[6], pre[7], pre[8]);
+    }
+
     if ((*specialKey & mask) == 0)
     {
+        DebugPrint(
+            "AKF: report pre=[%02x %02x %02x %02x %02x %02x %02x %02x %02x]\n",
+            pre[0], pre[1], pre[2], pre[3], pre[4], pre[5], pre[6], pre[7], pre[8]);
         return;
     }
+
+    DebugPrint(
+        "AKF: fn-report pre=[%02x %02x %02x %02x %02x %02x %02x %02x %02x]\n",
+        pre[0], pre[1], pre[2], pre[3], pre[4], pre[5], pre[6], pre[7], pre[8]);
 
     //
     // The keyboard's 6KRO key array declares usages 0x00..0x65 only, so any
