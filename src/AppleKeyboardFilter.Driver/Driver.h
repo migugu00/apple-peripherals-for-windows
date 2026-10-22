@@ -28,6 +28,7 @@ extern ULONG g_EmitFnAsF23;
 extern ULONG g_FnModifierMask;
 extern ULONG g_ForceModifierMask;
 extern ULONG g_ProxyHidCode;
+extern ULONG g_LockProxyHidCode;
 
 enum AppleKeyboardHidCodes
 {
@@ -38,6 +39,7 @@ enum AppleKeyboardHidCodes
 enum AppleKeyboardHidMasks
 {
     AppleSpecialFnMask = 0x02,
+    AppleSpecialLockMask = 0x08,
 };
 
 enum AppleKeyboardHidModifierBits
