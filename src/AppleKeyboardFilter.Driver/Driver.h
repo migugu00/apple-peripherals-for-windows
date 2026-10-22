@@ -25,9 +25,9 @@ extern "C" {
 #define DebugPrint(...) DbgPrint(DRIVERNAME ": " __VA_ARGS__)
 
 extern ULONG g_EmitFnAsF23;
-extern ULONG g_EmitHidCode;
 extern ULONG g_FnModifierMask;
 extern ULONG g_ForceModifierMask;
+extern ULONG g_ProxyHidCode;
 
 enum AppleKeyboardHidCodes
 {
