@@ -4,6 +4,28 @@ The Magic Keyboard exposes the Globe/Fn key as a vendor-specific bit in its HID 
 
 The app already treats F23/F24 as the configurable Globe/Fn action. Emitting F23 in the driver is intentional: it lets the app map Globe/Fn to Control while the real Apple Control key can still be mapped to Windows.
 
+## Driver Settings
+
+The driver reads these optional `REG_DWORD` values from `HKLM\SYSTEM\CurrentControlSet\Services\AppleKeyboardFilter` when it loads. Reconnect the keyboard or restart Windows after changing them.
+
+| Value | Default | Effect |
+| --- | --- | --- |
+| `EmitFnAsF23` | `1` | Set to `0` to pass Globe/Fn through untouched. |
+| `GlobeHidCode` | `0x72` (F23) | HID keyboard usage emitted while Globe/Fn is held. |
+| `LockHidCode` | `0` (off) | HID keyboard usage emitted while the Lock/Touch ID key is held. |
+
+Some keyboards only declare key usages up to `0x65`; this has been reported for the Touch ID Magic Keyboard (PID `0320`). Windows drops F23 on those, so Globe/Fn does nothing. Set `GlobeHidCode` to `0x65`, the Application/Menu key, which Apple keyboards do not have. The app treats `0x64`, `0x65`, `0x72`, and `0x73` as Globe/Fn and applies the Globe/Fn setting to them. With `0x65`, a Menu key on another keyboard also acts as Globe/Fn while the app is running, and Globe/Fn acts as a Menu key when the app is not running.
+
+`LockHidCode` does not need the app: set it to the usage the key should produce, for example `0x4C` for Delete. The Lock bit (`0x08` in the vendor byte) has been reported on the Touch ID Magic Keyboard.
+
+From elevated PowerShell:
+
+```powershell
+$service = "HKLM:\SYSTEM\CurrentControlSet\Services\AppleKeyboardFilter"
+Set-ItemProperty $service -Name GlobeHidCode -Value 0x65 -Type DWord
+Set-ItemProperty $service -Name LockHidCode -Value 0x4C -Type DWord
+```
+
 ## Supported Hardware IDs
 
 The INF targets these Apple keyboard IDs:

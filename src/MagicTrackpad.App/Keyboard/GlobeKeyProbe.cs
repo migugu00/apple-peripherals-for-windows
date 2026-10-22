@@ -76,6 +76,7 @@ internal static class GlobeKeyProbe
         private readonly DirectHidReportReader reader;
         private readonly bool appleKeyboardPresent;
         private readonly bool filterReady;
+        private readonly ushort? driverGlobeVk;
         private IntPtr hook;
         private bool observed;
         private bool disposed;
@@ -87,6 +88,7 @@ internal static class GlobeKeyProbe
             var devices = DeviceActions.EnumerateRawInputDevices();
             appleKeyboardPresent = DeviceCatalog.FindAppleKeyboards(devices).Count > 0;
             filterReady = KeyboardFilterDriverStatus.Query().Ready;
+            driverGlobeVk = KeyboardRemapper.GlobeVirtualKey(KeyboardFilterDriverStatus.ConfiguredGlobeHidCode());
 
             hook = NativeMethods.SetWindowsHookEx(NativeMethods.WH_KEYBOARD_LL, callback, IntPtr.Zero, 0);
 
@@ -139,6 +141,10 @@ internal static class GlobeKeyProbe
                 if (isDown && !injected && vk is VkF23 or VkF24)
                 {
                     MarkObserved(vk == VkF23 ? "keyboard-hook:F23" : "keyboard-hook:F24");
+                }
+                else if (isDown && !injected && vk == driverGlobeVk)
+                {
+                    MarkObserved($"keyboard-hook:0x{vk:X2}");
                 }
             }
 

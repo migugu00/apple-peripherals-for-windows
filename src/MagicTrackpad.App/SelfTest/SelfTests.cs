@@ -171,6 +171,11 @@ Catalog File:       keyboard.cat
         Require(KeyboardRemapper.IsHeldModifierAction(config.Keyboard.FnGlobe));
         Require(KeyboardRemapper.ModifierTarget(config.Keyboard.FnGlobe, 0x86).SequenceEqual(new ushort[] { 0xA2 }));
         Require(KeyboardRemapper.ModifierTarget(config.Keyboard.FnGlobe, 0x87).SequenceEqual(new ushort[] { 0xA3 }));
+        Require(KeyboardRemapper.GlobeVirtualKey(KeyboardFilterDriverStatus.DefaultGlobeHidCode) == 0x86);
+        Require(KeyboardRemapper.GlobeVirtualKey(0x65) == 0x5D);
+        Require(KeyboardRemapper.GlobeVirtualKey(0x64) == 0xE2);
+        Require(KeyboardRemapper.GlobeVirtualKey(0x4C) == null);
+        Require(KeyboardRemapper.ModifierTarget(config.Keyboard.FnGlobe, 0x5D).SequenceEqual(new ushort[] { 0xA2 }));
         Require(KeyboardRemapper.ModifierTarget(config.Keyboard.LeftControl, 0xA2).SequenceEqual(new ushort[] { 0x5B }));
         Require(KeyboardRemapper.ModifierTarget(config.Keyboard.RightControl, 0xA3).SequenceEqual(new ushort[] { 0x5C }));
         Require(KeyboardRemapper.ModifierTarget(config.Keyboard.LeftOption, 0xA4).SequenceEqual(new ushort[] { 0xA4 }));

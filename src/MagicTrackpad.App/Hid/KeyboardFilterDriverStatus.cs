@@ -42,6 +42,23 @@ public static class KeyboardFilterDriverStatus
     private static readonly string[] BluetoothPids = ["0320", "0267", "026C"];
     private static readonly string[] UsbPids = ["0321", "0267", "026C"];
 
+    public const int DefaultGlobeHidCode = 0x72;
+
+    // Mirrors the driver's GlobeHidCode service value, including its fallback for
+    // values that do not fit in a one-byte key slot.
+    public static int ConfiguredGlobeHidCode()
+    {
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey($@"SYSTEM\CurrentControlSet\Services\{FilterServiceName}");
+            return key?.GetValue("GlobeHidCode") is int value and >= 0 and <= 0xFF ? value : DefaultGlobeHidCode;
+        }
+        catch
+        {
+            return DefaultGlobeHidCode;
+        }
+    }
+
     public static KeyboardFilterDriverState Query(bool includeDriverStorePackages = false)
     {
         var appleKeyboardPresent = false;

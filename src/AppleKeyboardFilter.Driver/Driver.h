@@ -21,24 +21,15 @@ extern "C" {
 
 #define DRIVERNAME "AppleKeyboardFilter"
 
-//
-// Kernel tracing: compile-time gate so release builds carry no debug output.
-// Define AKF_TRACE_ENABLED (e.g. /DAKF_TRACE_ENABLED) to restore DbgView
-// traces (DriverEntry/free knobs, per-report body dumps, proxy insertion).
-//
-#ifdef AKF_TRACE_ENABLED
-#define AKF_TRACE_ON 1
+#if DBG
+#define DebugPrint(...) DbgPrint(DRIVERNAME ": " __VA_ARGS__)
 #else
-#define AKF_TRACE_ON 0
+#define DebugPrint(...)
 #endif
 
-#define DebugPrint(...) do { if (AKF_TRACE_ON) DbgPrint(DRIVERNAME ": " __VA_ARGS__); } while (0)
-
 extern ULONG g_EmitFnAsF23;
-extern ULONG g_FnModifierMask;
-extern ULONG g_ForceModifierMask;
-extern ULONG g_ProxyHidCode;
-extern ULONG g_LockProxyHidCode;
+extern ULONG g_GlobeHidCode;
+extern ULONG g_LockHidCode;
 
 enum AppleKeyboardHidCodes
 {
@@ -50,14 +41,6 @@ enum AppleKeyboardHidMasks
 {
     AppleSpecialFnMask = 0x02,
     AppleSpecialLockMask = 0x08,
-};
-
-enum AppleKeyboardHidModifierBits
-{
-    HidModifierLeftCtrl = 0x01,
-    HidModifierLeftShift = 0x02,
-    HidModifierLeftAlt = 0x04,
-    HidModifierLeftGui = 0x08,
 };
 
 typedef struct _DEVICE_EXTENSION
@@ -83,7 +66,6 @@ NTSTATUS UsageNotificationComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIR
 NTSTATUS CompleteRequest(_Inout_ PIRP Irp, _In_ NTSTATUS Status, _In_ ULONG_PTR Information);
 ULONG GetLowerDeviceType(_In_ PDEVICE_OBJECT Pdo);
 NTSTATUS ReadDriverDword(_In_ PUNICODE_STRING RegistryPath, _In_ PCWSTR ValueName, _Inout_ PULONG Value);
-VOID TraceAppleTransportBuffer(_In_opt_ PUCHAR Buffer, _In_ ULONG Size, _In_ ULONG PrefixBytes);
 VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ ULONG Size);
 BOOLEAN TryProcessAppleKeyboardTransportBuffer(_Inout_updates_bytes_(Size) PUCHAR Buffer, _In_ ULONG Size, _In_ ULONG PrefixBytes);
 

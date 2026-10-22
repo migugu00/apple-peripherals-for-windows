@@ -22,6 +22,8 @@ internal sealed class KeyboardRemapper : IDisposable
     private const ushort VkF19 = 0x82;
     private const ushort VkF23 = 0x86;
     private const ushort VkF24 = 0x87;
+    private const ushort VkApps = 0x5D;
+    private const ushort VkOem102 = 0xE2;
 
     private readonly IInputInjector injector;
     private readonly NativeMethods.LowLevelKeyboardProc callback;
@@ -30,12 +32,14 @@ internal sealed class KeyboardRemapper : IDisposable
     private KeyboardConfig config;
     private bool appleKeyboardPresent;
     private bool rawGlobeDown;
+    private ushort? driverGlobeVk;
     private IntPtr hook;
 
     public KeyboardRemapper(IInputInjector injector, KeyboardConfig config)
     {
         this.injector = injector;
         this.config = config;
+        driverGlobeVk = GlobeVirtualKey(KeyboardFilterDriverStatus.ConfiguredGlobeHidCode());
         callback = HookProc;
         EnsureHook();
     }
@@ -44,6 +48,7 @@ internal sealed class KeyboardRemapper : IDisposable
     {
         ReleaseHeldRemaps();
         config = nextConfig;
+        driverGlobeVk = GlobeVirtualKey(KeyboardFilterDriverStatus.ConfiguredGlobeHidCode());
         EnsureHook();
     }
 
@@ -164,7 +169,7 @@ internal sealed class KeyboardRemapper : IDisposable
             return HandleMappedKeyDown(vk, action);
         }
 
-        if (IsFunctionHotkey(vk))
+        if (IsFunctionHotkey(vk) || IsGlobeKey(vk))
         {
             if (SystemActions.TryRun(action))
             {
@@ -258,6 +263,7 @@ internal sealed class KeyboardRemapper : IDisposable
             0x81 => config.F18,
             0x82 => config.F19,
             VkF23 or VkF24 => config.FnGlobe,
+            _ when vk == driverGlobeVk => config.FnGlobe,
             _ => null,
         };
     }
@@ -267,7 +273,19 @@ internal sealed class KeyboardRemapper : IDisposable
 
     private static bool IsFunctionHotkey(ushort vk) => vk is >= VkF1 and <= VkF24;
 
-    private static bool IsGlobeKey(ushort vk) => vk is VkF23 or VkF24;
+    private bool IsGlobeKey(ushort vk) => vk is VkF23 or VkF24 || vk == driverGlobeVk;
+
+    // Virtual key Windows produces for the usage the filter driver emits on Globe/Fn.
+    // Usages other than F23/F24 are for keyboards whose report descriptor stops at
+    // 0x65, which makes Windows drop F13-F24.
+    internal static ushort? GlobeVirtualKey(int hidCode) => hidCode switch
+    {
+        0x64 => VkOem102,
+        0x65 => VkApps,
+        0x72 => VkF23,
+        0x73 => VkF24,
+        _ => null,
+    };
 
     internal static bool TryGetAppleFnState(byte[] report, out bool down)
     {
