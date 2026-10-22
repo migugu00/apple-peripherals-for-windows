@@ -80,7 +80,6 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
         DebugPrint("AKF: Fn key held -> modifier mask 0x%02x\n", modifierMask);
     }
 
-    UCHAR proxyCode = (UCHAR)g_ProxyHidCode;
     if (proxyCode == 0)
     {
         return;
