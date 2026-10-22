@@ -43,8 +43,9 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
     //
     // The keyboard's 6KRO key array declares usages 0x00..0x65 only, so any
     // injected F13..F24 keycode (0x68..0x73) is silently dropped by the HID
-    // parser. The modifier bitmap (E0..E7) IS declared, so while fn/globe is
-    // held we OR synthetic modifier bits into the modifier byte instead.
+    // parser. While fn/globe is held, inject a proxy keycode (default 0x65,
+    // "Non-US |" -> VK_OEM_102) into an empty key slot; a user-mode helper
+    // translates that VK into LeftCtrl and swallows it.
     //
     UCHAR modifierMask = (UCHAR)g_FnModifierMask;
     if (modifierMask != 0)
@@ -53,8 +54,8 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
         DebugPrint("AKF: Fn key held -> modifier mask 0x%02x\n", modifierMask);
     }
 
-    UCHAR emitCode = (UCHAR)g_EmitHidCode;
-    if (emitCode == 0)
+    UCHAR proxyCode = (UCHAR)g_ProxyHidCode;
+    if (proxyCode == 0)
     {
         return;
     }
@@ -62,7 +63,7 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
     BOOLEAN alreadyPresent = FALSE;
     for (ULONG index = 0; index < 6; index++)
     {
-        if (keySlots[index] == emitCode)
+        if (keySlots[index] == proxyCode)
         {
             alreadyPresent = TRUE;
             break;
@@ -75,13 +76,12 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
         {
             if (keySlots[index] == HidKeyNone)
             {
-                keySlots[index] = emitCode;
+                keySlots[index] = proxyCode;
+                DebugPrint("AKF: Fn held -> proxy key 0x%02x in slot %lu\n", proxyCode, index);
                 break;
             }
         }
     }
-
-    DebugPrint("AKF: patched Fn key bit -> emit code 0x%02x\n", emitCode);
 
     *specialKey &= ~mask;
 }
@@ -117,11 +117,11 @@ VOID TraceAppleTransportBuffer(_In_opt_ PUCHAR Buffer, _In_ ULONG Size, _In_ ULO
     {
         PUCHAR report = Buffer + PrefixBytes;
         DbgPrint(
-            " special=0x%02x mod=0x%02x mask=0x%02x emit=0x%02x",
+            " special=0x%02x mod=0x%02x mask=0x%02x proxy=0x%02x",
             report[8],
             report[1],
             (UCHAR)g_FnModifierMask,
-            (UCHAR)g_EmitHidCode);
+            (UCHAR)g_ProxyHidCode);
     }
     else
     {
