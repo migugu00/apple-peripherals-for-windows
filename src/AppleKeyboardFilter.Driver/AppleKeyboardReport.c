@@ -1,5 +1,11 @@
 #include "Driver.h"
 
+//
+// Set while our proxy key is present in the last patched report, so we know
+// to remove it from the key array once the Globe/special bit disappears.
+//
+static BOOLEAN g_ProxyInserted = FALSE;
+
 VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ ULONG Size)
 {
     if (Report == NULL || Size < 9 || !g_EmitFnAsF23)
@@ -28,8 +34,28 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
             pre[0], pre[1], pre[2], pre[3], pre[4], pre[5], pre[6], pre[7], pre[8]);
     }
 
+    UCHAR proxyCode = (UCHAR)g_ProxyHidCode;
+
     if ((*specialKey & mask) == 0)
     {
+        //
+        // Globe no longer held: scrub any injected proxy key out of the key
+        // array so the HID parser emits a proper break for it (and the
+        // user-mode helper releases its synthetic Ctrl).
+        //
+        if (g_ProxyInserted && proxyCode != 0)
+        {
+            for (ULONG index = 0; index < 6; index++)
+            {
+                if (keySlots[index] == proxyCode)
+                {
+                    keySlots[index] = HidKeyNone;
+                }
+            }
+            g_ProxyInserted = FALSE;
+            DebugPrint("AKF: Globe released -> proxy key 0x%02x removed\n", proxyCode);
+        }
+
         DebugPrint(
             "AKF: report pre=[%02x %02x %02x %02x %02x %02x %02x %02x %02x]\n",
             pre[0], pre[1], pre[2], pre[3], pre[4], pre[5], pre[6], pre[7], pre[8]);
@@ -72,12 +98,19 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
 
     if (!alreadyPresent)
     {
-        for (ULONG index = 0; index < 6; index++)
+        //
+        // Insert into the LAST empty slot: real keys fill slots 0,1,2... from
+        // the keyboard firmware, so a late slot keeps our proxy position
+        // stable and avoids a break/make flicker when a real key lands in a
+        // slot the proxy previously occupied.
+        //
+        for (LONG index = 5; index >= 0; index--)
         {
             if (keySlots[index] == HidKeyNone)
             {
                 keySlots[index] = proxyCode;
-                DebugPrint("AKF: Fn held -> proxy key 0x%02x in slot %lu\n", proxyCode, index);
+                g_ProxyInserted = TRUE;
+                DebugPrint("AKF: Fn held -> proxy key 0x%02x in slot %lu\n", proxyCode, (ULONG)index);
                 break;
             }
         }
