@@ -1,10 +1,63 @@
 #include "Driver.h"
 
 //
-// Set while our proxy key is present in the last patched report, so we know
-// to remove it from the key array once the Globe/special bit disappears.
+// Insertion-state flags: set while our proxy keys are present in the last
+// patched report, so we know to remove them from the key array once their
+// special bit disappears.
 //
-static BOOLEAN g_ProxyInserted = FALSE;
+static BOOLEAN g_GlobeProxyInserted = FALSE;
+static BOOLEAN g_LockProxyInserted = FALSE;
+
+static VOID EnsureProxyAbsent(_In_ PUCHAR keySlots, _In_ UCHAR code, _Inout_ PBOOLEAN inserted)
+{
+    if (!*inserted)
+    {
+        return;
+    }
+
+    for (ULONG index = 0; index < 6; index++)
+    {
+        if (keySlots[index] == code)
+        {
+            keySlots[index] = HidKeyNone;
+        }
+    }
+
+    *inserted = FALSE;
+}
+
+static VOID EnsureProxyPresent(_In_ PUCHAR keySlots, _In_ UCHAR code, _Inout_ PBOOLEAN inserted)
+{
+    if (code == 0)
+    {
+        return;
+    }
+
+    for (ULONG index = 0; index < 6; index++)
+    {
+        if (keySlots[index] == code)
+        {
+            *inserted = TRUE;
+            return;
+        }
+    }
+
+    //
+    // Insert into the LAST empty slot: real keys fill slots 0,1,2... from
+    // the keyboard firmware, so a late slot keeps our proxy position
+    // stable and avoids a break/make flicker when a real key lands in a
+    // slot the proxy previously occupied.
+    //
+    for (LONG index = 5; index >= 0; index--)
+    {
+        if (keySlots[index] == HidKeyNone)
+        {
+            keySlots[index] = code;
+            *inserted = TRUE;
+            return;
+        }
+    }
+}
 
 VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ ULONG Size)
 {
@@ -16,7 +69,6 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
     PUCHAR modifiers = &Report[1];
     PUCHAR keySlots = &Report[2];
     PUCHAR specialKey = &Report[8];
-    UCHAR mask = (UCHAR)AppleSpecialFnMask;
 
     UCHAR pre[9];
     RtlCopyMemory(pre, Report, 9);
@@ -34,88 +86,72 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
             pre[0], pre[1], pre[2], pre[3], pre[4], pre[5], pre[6], pre[7], pre[8]);
     }
 
-    UCHAR proxyCode = (UCHAR)g_ProxyHidCode;
-
-    if ((*specialKey & mask) == 0)
-    {
-        //
-        // Globe no longer held: scrub any injected proxy key out of the key
-        // array so the HID parser emits a proper break for it (and the
-        // user-mode helper releases its synthetic Ctrl).
-        //
-        if (g_ProxyInserted && proxyCode != 0)
-        {
-            for (ULONG index = 0; index < 6; index++)
-            {
-                if (keySlots[index] == proxyCode)
-                {
-                    keySlots[index] = HidKeyNone;
-                }
-            }
-            g_ProxyInserted = FALSE;
-            DebugPrint("AKF: Globe released -> proxy key 0x%02x removed\n", proxyCode);
-        }
-
-        DebugPrint(
-            "AKF: report pre=[%02x %02x %02x %02x %02x %02x %02x %02x %02x]\n",
-            pre[0], pre[1], pre[2], pre[3], pre[4], pre[5], pre[6], pre[7], pre[8]);
-        return;
-    }
-
-    DebugPrint(
-        "AKF: fn-report pre=[%02x %02x %02x %02x %02x %02x %02x %02x %02x]\n",
-        pre[0], pre[1], pre[2], pre[3], pre[4], pre[5], pre[6], pre[7], pre[8]);
-
     //
     // The keyboard's 6KRO key array declares usages 0x00..0x65 only, so any
     // injected F13..F24 keycode (0x68..0x73) is silently dropped by the HID
-    // parser. While fn/globe is held, inject a proxy keycode (default 0x64,
-    // "Non-US \\ |" -> VK_OEM_102) into an empty key slot; a user-mode helper
-    // translates that VK into LeftCtrl and swallows it.
+    // parser. Vendor-only special keys (Globe/Fn bit 0x02, Lock bit 0x08 in
+    // the special byte) are therefore remapped by injecting proxy keyboard
+    // usages into an empty key slot; a user-mode helper translates those
+    // VKs into real input and swallows the proxy keys:
     //
-    UCHAR modifierMask = (UCHAR)g_FnModifierMask;
-    if (modifierMask != 0)
+    //   Globe -> ProxyHidCode     (default 0x64, Non-US \| -> VK_OEM_102 -> helper sends LeftCtrl)
+    //   Lock  -> LockProxyHidCode (default 0x56, Keypad -  -> VK_SUBTRACT  -> helper sends VK_DELETE)
+    //
+    BOOLEAN globeHeld = (*specialKey & (UCHAR)AppleSpecialFnMask) != 0;
+    BOOLEAN lockHeld = (*specialKey & (UCHAR)AppleSpecialLockMask) != 0;
+
+    UCHAR globeWanted = globeHeld ? (UCHAR)g_ProxyHidCode : 0;
+    UCHAR lockWanted = lockHeld ? (UCHAR)g_LockProxyHidCode : 0;
+
+    if (!globeHeld && g_GlobeProxyInserted)
+    {
+        EnsureProxyAbsent(keySlots, (UCHAR)g_ProxyHidCode, &g_GlobeProxyInserted);
+        DebugPrint("AKF: Globe released -> proxy key 0x%02x removed\n", (UCHAR)g_ProxyHidCode);
+    }
+    else if (globeHeld && globeWanted != 0)
+    {
+        BOOLEAN wasPresent = g_GlobeProxyInserted;
+        EnsureProxyPresent(keySlots, globeWanted, &g_GlobeProxyInserted);
+        if (!wasPresent)
+        {
+            DebugPrint("AKF: Globe held -> proxy key 0x%02x inserted\n", globeWanted);
+        }
+    }
+
+    if (!lockHeld && g_LockProxyInserted)
+    {
+        EnsureProxyAbsent(keySlots, (UCHAR)g_LockProxyHidCode, &g_LockProxyInserted);
+        DebugPrint("AKF: Lock released -> proxy key 0x%02x removed\n", (UCHAR)g_LockProxyHidCode);
+    }
+    else if (lockHeld && lockWanted != 0)
+    {
+        BOOLEAN wasPresent = g_LockProxyInserted;
+        EnsureProxyPresent(keySlots, lockWanted, &g_LockProxyInserted);
+        if (!wasPresent)
+        {
+            DebugPrint("AKF: Lock held -> proxy key 0x%02x inserted\n", lockWanted);
+        }
+    }
+
+    //
+    // Optional legacy knob: OR global modifier bits while Globe is held.
+    //
+    USHORT modifierMask = (USHORT)(g_FnModifierMask & 0xFFFF);
+    if (modifierMask != 0 && globeHeld)
     {
         *modifiers |= modifierMask;
         DebugPrint("AKF: Fn key held -> modifier mask 0x%02x\n", modifierMask);
     }
 
-    if (proxyCode == 0)
-    {
-        return;
-    }
+    //
+    // Consume the vendor special bits we handled so they do not leak
+    // downstream as unknown vendor events.
+    //
+    *specialKey &= (UCHAR)~(AppleSpecialFnMask | AppleSpecialLockMask);
 
-    BOOLEAN alreadyPresent = FALSE;
-    for (ULONG index = 0; index < 6; index++)
-    {
-        if (keySlots[index] == proxyCode)
-        {
-            alreadyPresent = TRUE;
-            break;
-        }
-    }
-
-    if (!alreadyPresent)
-    {
-        //
-        // Insert into the LAST empty slot: real keys fill slots 0,1,2... from
-        // the keyboard firmware, so a late slot keeps our proxy position
-        // stable and avoids a break/make flicker when a real key lands in a
-        // slot the proxy previously occupied.
-        //
-        for (LONG index = 5; index >= 0; index--)
-        {
-            if (keySlots[index] == HidKeyNone)
-            {
-                keySlots[index] = proxyCode;
-                g_ProxyInserted = TRUE;
-                DebugPrint("AKF: Fn held -> proxy key 0x%02x in slot %lu\n", proxyCode, (ULONG)index);
-                break;
-            }
-        }
-    }
-
-    *specialKey &= ~mask;
+    DebugPrint(
+        "AKF: report pre=[%02x %02x %02x %02x %02x %02x %02x %02x %02x]\n",
+        pre[0], pre[1], pre[2], pre[3], pre[4], pre[5], pre[6], pre[7], pre[8]);
 }
 
 BOOLEAN TryProcessAppleKeyboardTransportBuffer(_Inout_updates_bytes_(Size) PUCHAR Buffer, _In_ ULONG Size, _In_ ULONG PrefixBytes)
@@ -149,11 +185,11 @@ VOID TraceAppleTransportBuffer(_In_opt_ PUCHAR Buffer, _In_ ULONG Size, _In_ ULO
     {
         PUCHAR report = Buffer + PrefixBytes;
         DbgPrint(
-            " special=0x%02x mod=0x%02x mask=0x%02x proxy=0x%02x",
+            " special=0x%02x mod=0x%02x proxy=0x%02x lock=0x%02x",
             report[8],
             report[1],
-            (UCHAR)g_FnModifierMask,
-            (UCHAR)g_ProxyHidCode);
+            (UCHAR)g_ProxyHidCode,
+            (UCHAR)g_LockProxyHidCode);
     }
     else
     {
