@@ -42,12 +42,15 @@ jobs:
 
       - name: Prepare signed keyboard driver
         shell: pwsh
+        env:
+          SIGNED_KEYBOARD_DRIVER_URL: ${{ inputs.signed_keyboard_driver_url }}
+          SIGNED_KEYBOARD_DRIVER_SHA256: ${{ inputs.signed_keyboard_driver_sha256 }}
         run: |
           $ErrorActionPreference = "Stop"
           New-Item -ItemType Directory -Force -Path artifacts\release | Out-Null
 
-          $url = "${{ inputs.signed_keyboard_driver_url }}"
-          $expectedHash = "${{ inputs.signed_keyboard_driver_sha256 }}"
+          $url = $env:SIGNED_KEYBOARD_DRIVER_URL
+          $expectedHash = $env:SIGNED_KEYBOARD_DRIVER_SHA256
           $driverZip = "artifacts\release\AppleKeyboardFilterDriver-signed.zip"
 
           if ([string]::IsNullOrWhiteSpace($url)) {
@@ -69,9 +72,11 @@ jobs:
 
       - name: Build installers
         shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
         run: |
           $ErrorActionPreference = "Stop"
-          $tag = "${{ inputs.version }}"
+          $tag = $env:RELEASE_VERSION
           if (!$tag.StartsWith("v", [StringComparison]::OrdinalIgnoreCase)) {
             $tag = "v$tag"
           }

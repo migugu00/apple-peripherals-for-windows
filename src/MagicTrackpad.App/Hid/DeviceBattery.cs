@@ -289,6 +289,10 @@ $devices | ForEach-Object {
 
             process.StandardInput.Write(script);
             process.StandardInput.Close();
+
+            // Drain stdout while waiting: with several matching devices the JSON can exceed the pipe
+            // buffer, which would block PowerShell on write and trip the 4 second timeout.
+            var outputTask = process.StandardOutput.ReadToEndAsync();
             if (!process.WaitForExit(4000))
             {
                 try
@@ -303,7 +307,7 @@ $devices | ForEach-Object {
                 return [];
             }
 
-            var output = process.StandardOutput.ReadToEnd().Trim();
+            var output = outputTask.GetAwaiter().GetResult().Trim();
             return ParsePnpRecords(output);
         }
         catch

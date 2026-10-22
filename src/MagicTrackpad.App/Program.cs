@@ -186,7 +186,7 @@ internal sealed class CommandLine
                     outputPath = index + 1 < args.Length ? args[++index] : outputPath;
                     break;
                 case "--seconds":
-                    if (index + 1 < args.Length && double.TryParse(args[++index], out var value))
+                    if (index + 1 < args.Length && double.TryParse(args[++index], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value))
                     {
                         seconds = value;
                     }

@@ -441,7 +441,9 @@ internal static class Installer
     private static bool TryRegisterStartupTask(string appExe)
     {
         var runLevel = IsAdministrator ? "HIGHEST" : "LIMITED";
-        var taskRun = $"\"{appExe}\" --bridge --config \"{ConfigPath}\"";
+        // schtasks parses its own command line, so the quotes around each path inside /TR must be
+        // backslash-escaped; otherwise a profile path containing a space splits the argument.
+        var taskRun = $"\\\"{appExe}\\\" --bridge --config \\\"{ConfigPath}\\\"";
         var args = $"/Create /TN \"{TaskName}\" /TR \"{taskRun}\" /SC ONLOGON /RL {runLevel} /F";
         return TryRunProcess("schtasks.exe", args, wait: true, out var exitCode) && exitCode == 0;
     }

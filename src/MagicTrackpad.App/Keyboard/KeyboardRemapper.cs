@@ -88,24 +88,33 @@ internal sealed class KeyboardRemapper : IDisposable
             return NativeMethods.CallNextHookEx(hook, code, wParam, lParam);
         }
 
-        var data = Marshal.PtrToStructure<NativeMethods.KeyboardHookStruct>(lParam);
-        if ((data.Flags & NativeMethods.LLKHF_INJECTED) != 0 || !ShouldApply())
+        try
         {
-            return NativeMethods.CallNextHookEx(hook, code, wParam, lParam);
+            var data = Marshal.PtrToStructure<NativeMethods.KeyboardHookStruct>(lParam);
+            if ((data.Flags & NativeMethods.LLKHF_INJECTED) != 0 || !ShouldApply())
+            {
+                return NativeMethods.CallNextHookEx(hook, code, wParam, lParam);
+            }
+
+            var vk = (ushort)data.VkCode;
+            var isDown = wParam == NativeMethods.WM_KEYDOWN || wParam == NativeMethods.WM_SYSKEYDOWN;
+            var isUp = wParam == NativeMethods.WM_KEYUP || wParam == NativeMethods.WM_SYSKEYUP;
+
+            if (isDown && HandleKeyDown(vk))
+            {
+                return 1;
+            }
+
+            if (isUp && HandleKeyUp(vk))
+            {
+                return 1;
+            }
         }
-
-        var vk = (ushort)data.VkCode;
-        var isDown = wParam == NativeMethods.WM_KEYDOWN || wParam == NativeMethods.WM_SYSKEYDOWN;
-        var isUp = wParam == NativeMethods.WM_KEYUP || wParam == NativeMethods.WM_SYSKEYUP;
-
-        if (isDown && HandleKeyDown(vk))
+        catch (Exception)
         {
-            return 1;
-        }
-
-        if (isUp && HandleKeyUp(vk))
-        {
-            return 1;
+            // A hook callback must never throw: an invalid hotkey in the config or a rejected
+            // SendInput (for example while an elevated window has focus) would otherwise crash
+            // the whole bridge. Fall through and let the original key press pass unchanged.
         }
 
         return NativeMethods.CallNextHookEx(hook, code, wParam, lParam);
