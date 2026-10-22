@@ -69,8 +69,8 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
     //
     // The keyboard's 6KRO key array declares usages 0x00..0x65 only, so any
     // injected F13..F24 keycode (0x68..0x73) is silently dropped by the HID
-    // parser. While fn/globe is held, inject a proxy keycode (default 0x65,
-    // "Non-US |" -> VK_OEM_102) into an empty key slot; a user-mode helper
+    // parser. While fn/globe is held, inject a proxy keycode (default 0x64,
+    // "Non-US \\ |" -> VK_OEM_102) into an empty key slot; a user-mode helper
     // translates that VK into LeftCtrl and swallows it.
     //
     UCHAR modifierMask = (UCHAR)g_FnModifierMask;
