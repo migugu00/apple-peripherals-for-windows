@@ -14,7 +14,7 @@ static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject);
 ULONG g_EmitFnAsF23 = 1;
 ULONG g_FnModifierMask = 0;
 ULONG g_ForceModifierMask = 0;
-ULONG g_ProxyHidCode = 0x65;
+ULONG g_ProxyHidCode = 0x64;
 
 static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject)
 {
