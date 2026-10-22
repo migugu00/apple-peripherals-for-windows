@@ -21,8 +21,18 @@ extern "C" {
 
 #define DRIVERNAME "AppleKeyboardFilter"
 
-// DIAGNOSTIC BUILD: trace output is always enabled so DbgView can capture it.
-#define DebugPrint(...) DbgPrint(DRIVERNAME ": " __VA_ARGS__)
+//
+// Kernel tracing: compile-time gate so release builds carry no debug output.
+// Define AKF_TRACE_ENABLED (e.g. /DAKF_TRACE_ENABLED) to restore DbgView
+// traces (DriverEntry/free knobs, per-report body dumps, proxy insertion).
+//
+#ifdef AKF_TRACE_ENABLED
+#define AKF_TRACE_ON 1
+#else
+#define AKF_TRACE_ON 0
+#endif
+
+#define DebugPrint(...) do { if (AKF_TRACE_ON) DbgPrint(DRIVERNAME ": " __VA_ARGS__); } while (0)
 
 extern ULONG g_EmitFnAsF23;
 extern ULONG g_FnModifierMask;
