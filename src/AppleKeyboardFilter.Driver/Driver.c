@@ -15,6 +15,7 @@ ULONG g_EmitFnAsF23 = 1;
 ULONG g_FnModifierMask = 0;
 ULONG g_ForceModifierMask = 0;
 ULONG g_ProxyHidCode = 0x64;
+ULONG g_LockProxyHidCode = 0x56;
 
 static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject)
 {
@@ -47,12 +48,14 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 
     ReadDriverDword(RegistryPath, L"EmitFnAsF23", &g_EmitFnAsF23);
     ReadDriverDword(RegistryPath, L"ProxyHidCode", &g_ProxyHidCode);
+    ReadDriverDword(RegistryPath, L"LockProxyHidCode", &g_LockProxyHidCode);
     ReadDriverDword(RegistryPath, L"FnModifierMask", &g_FnModifierMask);
     ReadDriverDword(RegistryPath, L"ForceModifierMask", &g_ForceModifierMask);
     DebugPrint(
-        "DriverEntry: EmitFnAsF23=%lu ProxyHidCode=0x%02x FnModifierMask=0x%02x ForceModifierMask=0x%02x\n",
+        "DriverEntry: EmitFnAsF23=%lu ProxyHidCode=0x%02x LockProxyHidCode=0x%02x FnModifierMask=0x%02x ForceModifierMask=0x%02x\n",
         g_EmitFnAsF23,
         (UCHAR)g_ProxyHidCode,
+        (UCHAR)g_LockProxyHidCode,
         (UCHAR)g_FnModifierMask,
         (UCHAR)g_ForceModifierMask);
     return STATUS_SUCCESS;
