@@ -168,6 +168,11 @@ BOOLEAN TryProcessAppleKeyboardTransportBuffer(_Inout_updates_bytes_(Size) PUCHA
 
 VOID TraceAppleTransportBuffer(_In_opt_ PUCHAR Buffer, _In_ ULONG Size, _In_ ULONG PrefixBytes)
 {
+#if AKF_TRACE_ON == 0
+    UNREFERENCED_PARAMETER(Buffer);
+    UNREFERENCED_PARAMETER(Size);
+    UNREFERENCED_PARAMETER(PrefixBytes);
+#else
     if (Buffer == NULL)
     {
         DbgPrint("AKF: size=%lu prefix=%lu buffer=NULL\n", Size, PrefixBytes);
@@ -196,4 +201,5 @@ VOID TraceAppleTransportBuffer(_In_opt_ PUCHAR Buffer, _In_ ULONG Size, _In_ ULO
         DbgPrint(" body-too-short(%lu)", Size - PrefixBytes);
     }
     DbgPrint("\n");
+#endif
 }
